@@ -1,12 +1,13 @@
-import flask
-from flask import request, jsonify, abort, make_response
+from flask import Flask, request, jsonify, abort, make_response
+from flask_httpauth import HTTPBasicAuth
 import sys
 
 if sys.version_info[0] >= 3:
     unicode = str
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 app.config["DEBUG"] = True
+auth = HTTPBasicAuth()
 
 # Create some test data for our catalog in the form of a list of dictionaries.
 books = [
@@ -27,15 +28,28 @@ books = [
      'published': '1975'}
 ]
 
+@auth.get_password
+def get_password(username):
+    if (username == 'tobi'):
+        return 'ola'
+    return None
+
+@auth.error_handler
+def unauthorized():
+    return make_response(jsonify({'error': 'Unauthorized access'}), 401)
+
 @app.route('/', methods=['GET'])
+@auth.login_required
 def home():
     return 'Hello World!'
 
 @app.route('/books', methods=['GET'])
+@auth.login_required
 def allBooks():
     return jsonify({'books': books})
 
 @app.route('/books/<int:id>', methods=['GET'])
+@auth.login_required
 def getBook(id):
     book = [book for book in books if book['id'] == id]
     if len(book) == 0:
@@ -43,6 +57,7 @@ def getBook(id):
     return jsonify({'book': book[0]})
 
 @app.route('/books', methods=['POST'])
+@auth.login_required
 def addBook():
     if not request.json or not 'title' in request.json or not 'author' in request.json:
         abort(400)
@@ -57,6 +72,7 @@ def addBook():
     return jsonify({'book': book}), 201
 
 @app.route('/books/<int:id>', methods=['PUT'])
+@auth.login_required
 def updateBook(id):
     book = [book for book in books if book['id'] == id]
     if len(book) == 0:
@@ -71,6 +87,7 @@ def updateBook(id):
     return jsonify({'book' : book[0]})
 
 @app.route('/books/<int:id>', methods=['DELETE'])
+@auth.login_required
 def deleteBook(id):
     book = [book for book in books if book['id'] == id]
     if len(book) == 0:
